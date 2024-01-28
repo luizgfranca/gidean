@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Submit AWS batch job</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+            rel="stylesheet"
+        />
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        <!-- <script src="/script.js"></script> -->
+    </head>
+    <body class="bg-gray-900 text-white">
+        <div class="container mx-auto px-4 py-8 flex justify-center">
+            <div class="w-full md:w-1/2 bg-gray-800 shadow-lg rounded-lg p-8">
+                <!-- Form to submit JSON -->
+                <form
+                    id="taskForm"
+                    class="mb-8"
+                    hx-post="/batch/job"
+                    hx-target="#metadata-content"
+                >
+                    <h2 class="text-xl font-semibold mb-4">Submit Job</h2>
+                    <div class="mb-4">
+                        <label
+                            for="jsonInput"
+                            class="block text-gray-300 font-medium mb-2"
+                            >Add below the JSON definition of the job you want
+                            to instantiate:</label
+                        >
+                        <textarea
+                            id="jsonInput"
+                            name="jsonInput"
+                            class="w-full h-64 px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500 bg-gray-700 text-gray-200"
+                            placeholder="Enter JSON here..."
+                        ></textarea>
+                    </div>
+                    <button
+                        type="submit"
+                        class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
+                    >
+                        Submit
+                    </button>
+                </form>
+            </div>
+            <div class="w-full md:w-1/2 shadow-lg rounded-lg p-8">
+                <div id="metadataDisplay">
+                    <h2 class="text-xl font-semibold mb-4">Status</h2>
+                    <div id="metadata-content">
+                        Submit the job to follow its status here.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
