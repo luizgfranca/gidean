@@ -1,4 +1,3 @@
-import { userInfo } from 'os';
 import AWSService from './provider/aws/aws.service';
 import credentials from './test-credentials';
 import _ from 'lodash';
@@ -7,32 +6,7 @@ const { accessKeyId, secretAccessKey } = credentials;
 
 const runningJobsMap: Record<string, AWS.Batch.DescribeJobsResponse> = {};
 
-async function main() {
-    const awsBatchInstance = await AWSService.getAwsBatchInstance(
-        accessKeyId,
-        secretAccessKey
-    );
-    // await AWSService.authenticate();
-    // listJobDefinitions(awsBatchInstance);
-
-    // AWSService.launchJob(awsBatchInstance, data, (jobId) =>
-    //     setInterval(() => AWSService.queryJob(awsBatchInstance, jobId), 5000)
-    // );
-}
-
-// main();
-
-// AWSCredentialProviders.fromNodeProviderChain({
-
-// })
-
-const JobStatus = {
-    RUNNING: 'RUNNING',
-    SUCCESS: 'SUCCESS',
-    ERROR: 'ERROR',
-};
-
-import express, { Request, query, response } from 'express';
+import express from 'express';
 import { EventEmitter } from 'stream';
 
 const config = {
@@ -44,18 +18,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.static('static'));
-
-// type TaskMetadata = {
-//     submission:
-// }
-
-app.get('/ping', (req, res) => {
-    res.json({ message: 'pong' });
-});
-
-type SubmitJobRequestPayload = {
-    jsonBody: string;
-};
 
 function followJob(
     batchInstance: AWS.Batch,
@@ -161,23 +123,13 @@ function jobInfoComponent(data: AWS.Batch.DescribeJobsResponse) {
 }
 
 app.post('/batch/job', (req, res) => {
-    // console.log(req.body)
     const input = JSON.parse(req.body.jsonInput) as AWS.Batch.SubmitJobRequest;
-    console.log('input', input);
-
-    const jobId = '123';
-
-    const responsestr = jobPollComponent(jobId, () =>
-        jobDataComponent(JSON.stringify({ result: 'success' }, null, 4))
-    );
-    // res.setHeader('job-id', '12345');
-    // res.write(responsestr);
-    // res.end();
 
     const batchInstance = AWSService.getAwsBatchInstance(
         accessKeyId,
         secretAccessKey
     );
+
     AWSService.launchJob(batchInstance, input, (jobId) => {
         followJob(
             batchInstance,
@@ -186,7 +138,6 @@ app.post('/batch/job', (req, res) => {
                 const responsestr = jobPollComponent(jobId, () =>
                     jobDataComponent(JSON.stringify(data, null, 4))
                 );
-                // console.log('responsestr')
                 console.log(responsestr);
                 res.write(responsestr);
                 res.send();
@@ -194,8 +145,6 @@ app.post('/batch/job', (req, res) => {
         );
     });
 });
-
-let testcounter = 0;
 
 app.get('/batch/job/:id', (req, res) => {
     console.log(req.url.split('/')[3]);
