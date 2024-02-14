@@ -8,6 +8,9 @@ const runningJobsMap: Record<string, AWS.Batch.DescribeJobsResponse> = {};
 
 import express from 'express';
 import { EventEmitter } from 'stream';
+import JobData from './ui/component/job-data';
+import JobMonitor from './ui/component/job-monitor';
+import JobInfo from './ui/component/job-info';
 
 const config = {
     port: 8080,
@@ -56,72 +59,6 @@ function followJob(
     );
 }
 
-function getBGColorClass(status?: string) {
-    if (status === 'success') {
-        return 'bg-green-900';
-    } else if (status === 'FAILED') {
-        return 'bg-red-900';
-    } else if (status === 'STARTING') {
-        return 'bg-gray-700';
-    } else {
-        return '';
-    }
-}
-
-function jobDataComponent(data: string, status?: 'success' | 'fail') {
-    return `<pre class="overflow-x-scroll bg-gray-900 p-4 ${getBGColorClass(status)}">${data}</pre>`;
-}
-
-function jobPollComponent(jobId: string, bodyComponent: () => string) {
-    return `
-        <div hx-get="/batch/job/${jobId}" hx-trigger="every 1s" hx-swap="innerHTML">
-            ${bodyComponent()}
-        </div>
-    `;
-}
-
-function fromUnixDate(timestamp: number) {
-    return new Date(timestamp * 1000);
-}
-
-function jobInfoComponent(data: AWS.Batch.DescribeJobsResponse) {
-    if (!data.jobs) return '';
-    const job = data.jobs[0];
-
-    const propmap: Record<string, string> = {
-        Name: job.jobName,
-        ID: job.jobId,
-        Queue: job.jobQueue,
-        Status: job.status,
-        'Dispatch Time': job.createdAt
-            ? fromUnixDate(job.createdAt).toUTCString()
-            : 'not dispatched yet',
-        'End Time': job.stoppedAt
-            ? fromUnixDate(job.stoppedAt).toUTCString()
-            : '',
-        Message: job.statusReason || '',
-    };
-
-    return `
-        <table class="min-w-full bg-gray-800 divide-y divide-gray-200 table-fixed dark:divide-gray-700"><tbody>
-            ${Object.keys(propmap)
-                .map(
-                    (k) => `
-                    <tr class="${k === 'Status' ? getBGColorClass(propmap[k]) : ''} divide-gray-700">
-                        <td class="py-4 px-6 text-sm font-semibold whitespace-nowrap">${k}</td>
-                        <td class="py-4 px-6 text-sm font-medium whitespace-nowrap">${propmap[k]}</td>
-                    </tr>
-                `
-                )
-                .reduce(
-                    (previousValue, currentValue) =>
-                        (previousValue += currentValue),
-                    ''
-                )}
-        </table></table>
-    `;
-}
-
 app.post('/batch/job', (req, res) => {
     const input = JSON.parse(req.body.jsonInput) as AWS.Batch.SubmitJobRequest;
 
@@ -135,8 +72,8 @@ app.post('/batch/job', (req, res) => {
             batchInstance,
             jobId,
             (data: AWS.Batch.DescribeJobsResponse) => {
-                const responsestr = jobPollComponent(jobId, () =>
-                    jobDataComponent(JSON.stringify(data, null, 4))
+                const responsestr = JobMonitor(jobId, () =>
+                    JobData(JSON.stringify(data, null, 4))
                 );
                 console.log(responsestr);
                 res.write(responsestr);
@@ -150,7 +87,7 @@ app.get('/batch/job/:id', (req, res) => {
     console.log(req.url.split('/')[3]);
     const jobId = req.url.split('/')[3];
     console.log(runningJobsMap);
-    const responsestr = jobInfoComponent(runningJobsMap[jobId]);
+    const responsestr = JobInfo(runningJobsMap[jobId]);
     res.write(responsestr);
     res.end();
 });
