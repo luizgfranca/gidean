@@ -1,5 +1,11 @@
-# Earendel
+# Gidean
 
-Automate frequent cloud infrastructure tasks and expose them to developers, enabling you platform team to focus on what's important
+Automate frequent cloud infrastructure tasks and expose them to developers, enabling your platform team to focus on improving reliability, cost optimization and new projects instead of operational tasks.
 
-### WIP - coming soon
+## Currently
+
+### AWS Batch Job Launcher
+
+Launch AWS batch jobs from a simple interface
+
+### WIP - more coming soon
