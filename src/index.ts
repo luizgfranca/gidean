@@ -1,19 +1,19 @@
 import AWSService from './provider/aws/aws.service';
-import credentials from './test-credentials';
 import _ from 'lodash';
-
-const { accessKeyId, secretAccessKey } = credentials;
-
-const runningJobsMap: Record<string, AWS.Batch.DescribeJobsResponse> = {};
-
+import dotenv from 'dotenv';
 import express from 'express';
 import { EventEmitter } from 'stream';
 import JobData from './ui/component/job-data';
 import JobMonitor from './ui/component/job-monitor';
 import JobInfo from './ui/component/job-info';
+import SecretStore from './service/secret-store';
+
+dotenv.config();
+const store = new SecretStore(process.env.secret_store_relative_path);
+const { accessKeyId, secretAccessKey } = store.credentials;
 
 const config = {
-    port: 8080,
+    port: process.env.port ? Number(process.env.port) : 8080,
     hostname: '127.0.0.1',
 };
 
@@ -21,6 +21,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.static('static'));
+
+const runningJobsMap: Record<string, AWS.Batch.DescribeJobsResponse> = {};
 
 function followJob(
     batchInstance: AWS.Batch,
@@ -93,5 +95,5 @@ app.get('/batch/job/:id', (req, res) => {
 });
 
 app.listen(config.port, config.hostname, () => {
-    console.log(`listening to ${config.hostname}:${config.port}`);
+    console.log(`listening to 127.0.0.1:${config.port}`);
 });
