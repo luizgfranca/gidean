@@ -7,6 +7,7 @@ import JobData from './ui/component/job-data';
 import JobMonitor from './ui/component/job-monitor';
 import JobInfo from './ui/component/job-info';
 import SecretStore from './service/secret-store';
+import AWSBatchService from './provider/aws/aws.service';
 
 dotenv.config();
 const store = new SecretStore(process.env.secret_store_relative_path);
@@ -22,67 +23,53 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.static('static'));
 
+const batch = new AWSBatchService(accessKeyId, secretAccessKey);
+
 const runningJobsMap: Record<string, AWS.Batch.DescribeJobsResponse> = {};
 
-function followJob(
-    batchInstance: AWS.Batch,
-    jobId: string,
-    initialInfoCallback?: (info: AWS.Batch.DescribeJobsResponse) => void
-) {
-    AWSService.queryJob(
-        batchInstance,
-        jobId,
-        (data: AWS.Batch.DescribeJobsResponse) => {
+async function followJob(jobId: string) {
+    const jobEventFollower = new EventEmitter();
+    const queryJobTimer = setInterval(() => {
+        console.log('should poll ' + jobId);
+        batch.queryJob(jobId).then((data: AWS.Batch.DescribeJobsResponse) => {
+            console.log('polled job', data);
             runningJobsMap[jobId] = data;
-            console.log(runningJobsMap);
-            initialInfoCallback?.(data);
+            if (data.jobs && data.jobs[0].stoppedAt) {
+                jobEventFollower.emit('done');
+            }
+        });
+    }, 10000);
 
-            const jobEventFollower = new EventEmitter();
-            const queryJobTimer = setInterval(() => {
-                console.log('should poll ' + jobId);
-                AWSService.queryJob(
-                    batchInstance,
-                    jobId,
-                    (data: AWS.Batch.DescribeJobsResponse) => {
-                        console.log('polled job', data);
-                        runningJobsMap[jobId] = data;
-                        if (data.jobs && data.jobs[0].stoppedAt) {
-                            jobEventFollower.emit('done');
-                        }
-                    }
-                );
-            }, 10000);
-
-            jobEventFollower.on('done', () => {
-                console.log(`job ${jobId} ended, done polling`);
-                clearInterval(queryJobTimer);
-            });
-        }
-    );
+    jobEventFollower.on('done', () => {
+        console.log(`job ${jobId} ended, done polling`);
+        clearInterval(queryJobTimer);
+    });
 }
 
-app.post('/batch/job', (req, res) => {
+app.post('/batch/job', async (req, res) => {
+    console.log('/batch/job');
     const input = JSON.parse(req.body.jsonInput) as AWS.Batch.SubmitJobRequest;
 
-    const batchInstance = AWSService.getAwsBatchInstance(
-        accessKeyId,
-        secretAccessKey
-    );
+    let responsestr: string = '';
+    try {
+        const jobId = await batch.launchJob(input);
+        const description = await batch.queryJob(jobId);
 
-    AWSService.launchJob(batchInstance, input, (jobId) => {
-        followJob(
-            batchInstance,
-            jobId,
-            (data: AWS.Batch.DescribeJobsResponse) => {
-                const responsestr = JobMonitor(jobId, () =>
-                    JobData(JSON.stringify(data, null, 4))
-                );
-                console.log(responsestr);
-                res.write(responsestr);
-                res.send();
-            }
+        console.log(runningJobsMap);
+        runningJobsMap[jobId] = description;
+        followJob(jobId);
+
+        responsestr = JobMonitor(jobId, () =>
+            JobData(JSON.stringify(description, null, 4))
         );
-    });
+        console.log(responsestr);
+    } catch (e) {
+        console.log(e);
+        responsestr = JobData(`${e}`);
+    }
+
+    res.write(responsestr);
+    res.end();
 });
 
 app.get('/batch/job/:id', (req, res) => {
